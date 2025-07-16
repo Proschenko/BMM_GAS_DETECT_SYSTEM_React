@@ -1,9 +1,24 @@
 import React, { useState } from 'react';
-import { Upload, Button, Progress, message, Typography, Space } from 'antd';
-import { UploadOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import {
+  Upload,
+  Button,
+  Progress,
+  message,
+  Typography,
+  Space,
+  Card,
+  Divider,
+} from 'antd';
+import {
+  UploadOutlined,
+  PlayCircleOutlined,
+  VideoCameraOutlined,
+  FireOutlined,
+  CheckCircleOutlined,
+} from '@ant-design/icons';
 import axios from 'axios';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 function App() {
   const [file, setFile] = useState(null);
@@ -15,7 +30,7 @@ function App() {
   const handleBeforeUpload = (file) => {
     setFile(file);
     setVideoUrl(URL.createObjectURL(file));
-    return false; // предотвратить авто-загрузку
+    return false;
   };
 
   const handleUpload = async () => {
@@ -56,49 +71,87 @@ function App() {
     }
   };
 
+  const videoStyle = {
+    width: '100%',
+    maxHeight: '400px',
+    objectFit: 'contain',
+    borderRadius: 8,
+    border: '1px solid #ccc',
+  };
+
   return (
-    <div style={{ maxWidth: 600, margin: '50px auto', padding: 24 }}>
-      <Title level={2}>Анализ утечек газа на видео</Title>
-
+    <div
+      style={{
+        maxWidth: 800,
+        margin: '40px auto',
+        padding: 24,
+        background: '#fafafa',
+        borderRadius: 16,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+      }}
+    >
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Upload
-          beforeUpload={handleBeforeUpload}
-          accept="video/*"
-          maxCount={1}
-          showUploadList={{ showPreviewIcon: false }}
-        >
-          <Button icon={<UploadOutlined />}>Выберите видео</Button>
-        </Upload>
+        <Title level={2} style={{ textAlign: 'center' }}>
+          <FireOutlined style={{ color: '#f5222d', marginRight: 12 }} />
+          Газ Лайтинг — Обнаружение утечек на видео
+        </Title>
 
-        {videoUrl && (
-          <video
-            src={videoUrl}
-            controls
-            style={{ width: '100%', borderRadius: 8, border: '1px solid #ccc' }}
-          />
-        )}
+        <Card bordered>
+          <Title level={4}>
+            <VideoCameraOutlined style={{ marginRight: 8 }} />
+            Шаг 1. Загрузите видео
+          </Title>
 
-        <Button
-          type="primary"
-          icon={<PlayCircleOutlined />}
-          loading={uploading}
-          onClick={handleUpload}
-          disabled={!file || uploading}
-        >
-          Отправить на анализ
-        </Button>
+          <Upload
+            beforeUpload={handleBeforeUpload}
+            accept="video/*"
+            maxCount={1}
+            showUploadList={{ showPreviewIcon: false }}
+          >
+            <Button icon={<UploadOutlined />}>Выберите видео</Button>
+          </Upload>
 
-        {uploading && <Progress percent={progress} />}
+          {videoUrl && (
+            <>
+              <Divider>Предпросмотр видео</Divider>
+              <video src={videoUrl} controls style={videoStyle} />
+            </>
+          )}
+        </Card>
+
+        <Card bordered>
+          <Title level={4}>
+            <PlayCircleOutlined style={{ marginRight: 8 }} />
+            Шаг 2. Запустите анализ
+          </Title>
+
+          <Button
+            type="primary"
+            icon={<PlayCircleOutlined />}
+            loading={uploading}
+            onClick={handleUpload}
+            disabled={!file || uploading}
+          >
+            Отправить на анализ
+          </Button>
+
+          {uploading && (
+            <Progress
+              percent={progress}
+              style={{ marginTop: 16 }}
+              status={progress === 100 ? 'active' : 'normal'}
+            />
+          )}
+        </Card>
 
         {processedUrl && (
-          <>
-            <Title level={4}>Результат анализа:</Title>
-            <video
-              src={processedUrl}
-              controls
-              style={{ width: '100%', borderRadius: 8, border: '1px solid #ccc' }}
-            />
-          </>
+          <Card bordered>
+            <Title level={4}>
+              <CheckCircleOutlined style={{ marginRight: 8, color: '#52c41a' }} />
+              Результат анализа
+            </Title>
+            <video src={processedUrl} controls style={videoStyle} />
+          </Card>
         )}
       </Space>
     </div>
