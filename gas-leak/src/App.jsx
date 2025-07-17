@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Upload,
   Button,
@@ -8,6 +8,7 @@ import {
   Space,
   Card,
   Divider,
+  Table,
 } from 'antd';
 import {
   UploadOutlined,
@@ -18,14 +19,20 @@ import {
 } from '@ant-design/icons';
 import axios from 'axios';
 
+
 const { Title, Text } = Typography;
 
 function App() {
   const [file, setFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [videoUrl, setVideoUrl] = useState('');
   const [processedUrl, setProcessedUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processing, setProcessing] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [detections, setDetections] = useState([]);
+
+  const videoRef = useRef(null);
 
   const handleBeforeUpload = (file) => {
     setFile(file);
@@ -43,8 +50,10 @@ function App() {
     formData.append('file', file);
 
     setUploading(true);
-    setProgress(0);
+    setUploadProgress(0);
     setProcessedUrl('');
+    setEvents([]);
+    setDetections([]);
 
     try {
       const response = await axios.post('http://localhost:8000/upload/', formData, {
@@ -52,13 +61,19 @@ function App() {
         onUploadProgress: (e) => {
           if (e.total) {
             const percent = Math.round((e.loaded * 100) / e.total);
-            setProgress(percent);
+            setUploadProgress(percent);
           }
         },
       });
 
-      if (response.data.status === 'success') {
-        setProcessedUrl(`http://localhost:8000${response.data.output_video}`);
+      setUploading(false);
+      setProcessing(true);
+
+      const { data } = response;
+      if (data.status === 'success') {
+        setProcessedUrl(`http://localhost:8000${data.output_video}`);
+        setEvents(data.events || []);
+        setDetections(data.detections || []);
         message.success('Видео успешно обработано!');
       } else {
         message.error('Ошибка обработки видео.');
@@ -68,6 +83,7 @@ function App() {
       message.error('Ошибка при отправке запроса.');
     } finally {
       setUploading(false);
+      setProcessing(false);
     }
   };
 
@@ -78,6 +94,43 @@ function App() {
     borderRadius: 8,
     border: '1px solid #ccc',
   };
+
+  const handleSeek = (seconds) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = seconds;
+      videoRef.current.play();
+    }
+  };
+
+  const columns = [
+    {
+      title: 'Начало (с)',
+      dataIndex: 'start',
+      key: 'start',
+      render: (val) => val.toFixed(2),
+    },
+    {
+      title: 'Конец (с)',
+      dataIndex: 'end',
+      key: 'end',
+      render: (val) => val.toFixed(2),
+    },
+    {
+      title: 'Длительность (с)',
+      dataIndex: 'duration',
+      key: 'duration',
+      render: (val) => val.toFixed(2),
+    },
+    {
+      title: 'Действие',
+      key: 'action',
+      render: (_, record) => (
+        <Button type="link" onClick={() => handleSeek(record.start)}>
+          Перейти
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div
@@ -128,19 +181,26 @@ function App() {
           <Button
             type="primary"
             icon={<PlayCircleOutlined />}
-            loading={uploading}
+            loading={uploading || processing}
             onClick={handleUpload}
-            disabled={!file || uploading}
+            disabled={!file || uploading || processing}
           >
             Отправить на анализ
           </Button>
 
           {uploading && (
             <Progress
-              percent={progress}
+              percent={uploadProgress}
               style={{ marginTop: 16 }}
-              status={progress === 100 ? 'active' : 'normal'}
+              status={uploadProgress === 100 ? 'active' : 'normal'}
             />
+          )}
+
+          {processing && (
+            <div style={{ marginTop: 16 }}>
+              <Text>Идёт обработка видео...</Text>
+              <Progress percent={100} status="active" showInfo={false} />
+            </div>
           )}
         </Card>
 
@@ -150,7 +210,24 @@ function App() {
               <CheckCircleOutlined style={{ marginRight: 8, color: '#52c41a' }} />
               Результат анализа
             </Title>
-            <video src={processedUrl} controls style={videoStyle} />
+            <video
+              ref={videoRef}
+              src={processedUrl}
+              controls
+              style={videoStyle}
+            />
+          </Card>
+        )}
+
+        {events.length > 0 && (
+          <Card bordered>
+            <Title level={4}>Таблица утечек</Title>
+            <Table
+              dataSource={events}
+              columns={columns}
+              rowKey={(record, index) => index}
+              pagination={false}
+            />
           </Card>
         )}
       </Space>
